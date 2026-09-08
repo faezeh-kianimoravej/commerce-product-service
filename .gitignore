@@ -1,0 +1,26 @@
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+### Java ###
+*.class
+*.jar
+*.war
+*.ear
+
+### Maven ###
+dependency-reduced-pom.xml
+
+### Logs ###
+*.log
+
+### IDEs ###
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+.vscode/
+
+### OS ###
+.DS_Store
+Thumbs.db

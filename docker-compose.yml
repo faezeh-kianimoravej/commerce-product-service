@@ -1,0 +1,33 @@
+services:
+  product-db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: product_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - product-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d product_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  product-service:
+    build:
+      context: .
+    environment:
+      DB_URL: jdbc:postgresql://product-db:5432/product_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+    ports:
+      - "8080:8080"
+    depends_on:
+      product-db:
+        condition: service_healthy
+
+volumes:
+  product-db-data:
