@@ -127,6 +127,24 @@ mvn package
 
 Tests use mocks and H2 where appropriate, so PostgreSQL does not need to be running for test execution.
 
+## CI/CD
+
+GitHub Actions CI runs on pushes and pull requests to `main`. It sets up Java 21 with Temurin, caches Maven dependencies, runs tests, builds the application, and verifies that the Docker image can be built locally as `commerce-product-service:${{ github.sha }}`.
+
+CD runs only on pushes to `main`. It authenticates to Azure using OIDC, pushes the SHA-tagged image to Azure Container Registry, and updates the Azure Container App to deploy that exact image tag:
+
+```text
+acrcommerceplatformdev.azurecr.io/commerce-product-service:${{ github.sha }}
+```
+
+Required GitHub repository secrets:
+
+- `AZURE_CLIENT_ID`
+- `AZURE_TENANT_ID`
+- `AZURE_SUBSCRIPTION_ID`
+
+The workflow does not configure database settings. Existing Azure Container App environment variables and secret references, including `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD`, remain managed outside GitHub Actions.
+
 Product deletion is implemented as soft delete: `DELETE /api/products/{id}` sets `active` to `false` instead of permanently removing the row. Normal read and update operations only target active products.
 
 Product timestamps are stored using `Instant` for UTC-friendly persistence across cloud and microservices environments.
