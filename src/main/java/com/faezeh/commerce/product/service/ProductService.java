@@ -10,12 +10,16 @@ import com.faezeh.commerce.product.exception.DuplicateProductSkuException;
 import com.faezeh.commerce.product.exception.ProductNotFoundException;
 import com.faezeh.commerce.product.metrics.ProductMetrics;
 import com.faezeh.commerce.product.repository.ProductRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional
 public class ProductService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ProductService.class);
 
     private final ProductRepository productRepository;
     private final ProductMetrics productMetrics;
@@ -27,6 +31,7 @@ public class ProductService {
 
     public ProductResponse createProduct(CreateProductRequest request) {
         if (productRepository.existsBySku(request.sku())) {
+            LOGGER.warn("Product creation rejected due to duplicate sku: sku={}", request.sku());
             throw new DuplicateProductSkuException(request.sku());
         }
 
@@ -40,6 +45,7 @@ public class ProductService {
 
         Product savedProduct = productRepository.save(product);
         productMetrics.productCreated();
+        LOGGER.info("Product created: id={}, sku={}", savedProduct.getId(), savedProduct.getSku());
         return toResponse(savedProduct);
     }
 
@@ -63,7 +69,10 @@ public class ProductService {
     @Transactional(readOnly = true)
     public ProductResponse getProductBySku(String sku) {
         Product product = productRepository.findBySkuAndActiveTrue(sku)
-                .orElseThrow(() -> new ProductNotFoundException("sku", sku));
+                .orElseThrow(() -> {
+                    LOGGER.warn("Product not found: sku={}", sku);
+                    return new ProductNotFoundException("sku", sku);
+                });
         productMetrics.productLookup();
         return toResponse(product);
     }
@@ -78,6 +87,7 @@ public class ProductService {
 
         Product savedProduct = productRepository.save(product);
         productMetrics.productUpdated();
+        LOGGER.info("Product updated: id={}, sku={}", savedProduct.getId(), savedProduct.getSku());
         return toResponse(savedProduct);
     }
 
@@ -86,11 +96,15 @@ public class ProductService {
         product.setActive(false);
         productRepository.save(product);
         productMetrics.productDeleted();
+        LOGGER.info("Product soft-deleted: id={}, sku={}", product.getId(), product.getSku());
     }
 
     private Product findProductById(Long id) {
         return productRepository.findByIdAndActiveTrue(id)
-                .orElseThrow(() -> new ProductNotFoundException("id", id));
+                .orElseThrow(() -> {
+                    LOGGER.warn("Product not found: id={}", id);
+                    return new ProductNotFoundException("id", id);
+                });
     }
 
     private ProductResponse toResponse(Product product) {
