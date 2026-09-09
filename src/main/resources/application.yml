@@ -11,7 +11,10 @@ spring:
     open-in-view: false
 
 management:
+  endpoint:
+    health:
+      show-details: always
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,info
