@@ -8,6 +8,7 @@ import com.faezeh.commerce.product.dto.UpdateProductRequest;
 import com.faezeh.commerce.product.entity.Product;
 import com.faezeh.commerce.product.exception.DuplicateProductSkuException;
 import com.faezeh.commerce.product.exception.ProductNotFoundException;
+import com.faezeh.commerce.product.metrics.ProductMetrics;
 import com.faezeh.commerce.product.repository.ProductRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,9 +18,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class ProductService {
 
     private final ProductRepository productRepository;
+    private final ProductMetrics productMetrics;
 
-    public ProductService(ProductRepository productRepository) {
+    public ProductService(ProductRepository productRepository, ProductMetrics productMetrics) {
         this.productRepository = productRepository;
+        this.productMetrics = productMetrics;
     }
 
     public ProductResponse createProduct(CreateProductRequest request) {
@@ -35,27 +38,34 @@ public class ProductService {
         product.setAvailableQuantity(request.availableQuantity());
         product.setActive(true);
 
-        return toResponse(productRepository.save(product));
+        Product savedProduct = productRepository.save(product);
+        productMetrics.productCreated();
+        return toResponse(savedProduct);
     }
 
     @Transactional(readOnly = true)
     public List<ProductResponse> getAllProducts() {
-        return productRepository.findAllByActiveTrue()
+        List<ProductResponse> products = productRepository.findAllByActiveTrue()
                 .stream()
                 .map(this::toResponse)
                 .toList();
+        productMetrics.productList();
+        return products;
     }
 
     @Transactional(readOnly = true)
     public ProductResponse getProductById(Long id) {
-        return toResponse(findProductById(id));
+        Product product = findProductById(id);
+        productMetrics.productLookup();
+        return toResponse(product);
     }
 
     @Transactional(readOnly = true)
     public ProductResponse getProductBySku(String sku) {
-        return productRepository.findBySkuAndActiveTrue(sku)
-                .map(this::toResponse)
+        Product product = productRepository.findBySkuAndActiveTrue(sku)
                 .orElseThrow(() -> new ProductNotFoundException("sku", sku));
+        productMetrics.productLookup();
+        return toResponse(product);
     }
 
     public ProductResponse updateProduct(Long id, UpdateProductRequest request) {
@@ -66,13 +76,16 @@ public class ProductService {
         product.setAvailableQuantity(request.availableQuantity());
         product.setActive(request.active());
 
-        return toResponse(productRepository.save(product));
+        Product savedProduct = productRepository.save(product);
+        productMetrics.productUpdated();
+        return toResponse(savedProduct);
     }
 
     public void deleteProduct(Long id) {
         Product product = findProductById(id);
         product.setActive(false);
         productRepository.save(product);
+        productMetrics.productDeleted();
     }
 
     private Product findProductById(Long id) {
