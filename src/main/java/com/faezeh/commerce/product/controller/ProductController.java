@@ -3,6 +3,7 @@ package com.faezeh.commerce.product.controller;
 import java.util.List;
 
 import com.faezeh.commerce.product.dto.CreateProductRequest;
+import com.faezeh.commerce.product.dto.ProductAvailabilityResponse;
 import com.faezeh.commerce.product.dto.ProductResponse;
 import com.faezeh.commerce.product.dto.UpdateProductRequest;
 import com.faezeh.commerce.product.exception.ApiErrorResponse;
@@ -14,8 +15,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,10 +26,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/products")
+@Validated
 @Tag(name = "Products", description = "Product catalog management APIs")
 public class ProductController {
 
@@ -90,6 +95,23 @@ public class ProductController {
     )
     public ResponseEntity<ProductResponse> getProductBySku(@PathVariable String sku) {
         return ResponseEntity.ok(productService.getProductBySku(sku));
+    }
+
+    @GetMapping("/{productId}/availability")
+    @Operation(
+            summary = "Check product availability",
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "OK",
+                            content = @Content(schema = @Schema(implementation = ProductAvailabilityResponse.class))),
+                    @ApiResponse(responseCode = "400", description = "Bad Request",
+                            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+            }
+    )
+    public ResponseEntity<ProductAvailabilityResponse> checkProductAvailability(
+            @PathVariable Long productId,
+            @RequestParam @Positive Integer quantity
+    ) {
+        return ResponseEntity.ok(productService.checkAvailability(productId, quantity));
     }
 
     @PutMapping("/{id}")

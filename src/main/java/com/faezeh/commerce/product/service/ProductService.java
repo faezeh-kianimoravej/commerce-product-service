@@ -3,10 +3,12 @@ package com.faezeh.commerce.product.service;
 import java.util.List;
 
 import com.faezeh.commerce.product.dto.CreateProductRequest;
+import com.faezeh.commerce.product.dto.ProductAvailabilityResponse;
 import com.faezeh.commerce.product.dto.ProductResponse;
 import com.faezeh.commerce.product.dto.UpdateProductRequest;
 import com.faezeh.commerce.product.entity.Product;
 import com.faezeh.commerce.product.exception.DuplicateProductSkuException;
+import com.faezeh.commerce.product.exception.InvalidProductQuantityException;
 import com.faezeh.commerce.product.exception.ProductNotFoundException;
 import com.faezeh.commerce.product.metrics.ProductMetrics;
 import com.faezeh.commerce.product.repository.ProductRepository;
@@ -77,6 +79,17 @@ public class ProductService {
         return toResponse(product);
     }
 
+    @Transactional(readOnly = true)
+    public ProductAvailabilityResponse checkAvailability(Long productId, int quantity) {
+        if (quantity <= 0) {
+            throw new InvalidProductQuantityException();
+        }
+
+        return productRepository.findByIdAndActiveTrue(productId)
+                .map(product -> toAvailabilityResponse(product, quantity))
+                .orElseGet(() -> new ProductAvailabilityResponse(productId, false, false, 0));
+    }
+
     public ProductResponse updateProduct(Long id, UpdateProductRequest request) {
         Product product = findProductById(id);
         product.setName(request.name());
@@ -116,6 +129,16 @@ public class ProductService {
                 product.getPrice(),
                 product.getAvailableQuantity(),
                 product.getActive()
+        );
+    }
+
+    private ProductAvailabilityResponse toAvailabilityResponse(Product product, int quantity) {
+        int availableQuantity = product.getAvailableQuantity();
+        return new ProductAvailabilityResponse(
+                product.getId(),
+                true,
+                availableQuantity >= quantity,
+                availableQuantity
         );
     }
 }

@@ -15,6 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.math.BigDecimal;
 import java.util.List;
 
+import com.faezeh.commerce.product.dto.ProductAvailabilityResponse;
 import com.faezeh.commerce.product.dto.ProductResponse;
 import com.faezeh.commerce.product.exception.DuplicateProductSkuException;
 import com.faezeh.commerce.product.exception.ProductNotFoundException;
@@ -140,6 +141,47 @@ class ProductControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.sku").value("SKU-001"));
+    }
+
+    @Test
+    void checkProductAvailabilityReturnsAvailableResponse() throws Exception {
+        when(productService.checkAvailability(1L, 10))
+                .thenReturn(new ProductAvailabilityResponse(1L, true, true, 25));
+
+        mockMvc.perform(get("/api/products/1/availability")
+                        .param("quantity", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.productId").value(1))
+                .andExpect(jsonPath("$.existsAndActive").value(true))
+                .andExpect(jsonPath("$.available").value(true))
+                .andExpect(jsonPath("$.availableQuantity").value(25));
+
+        verify(productService).checkAvailability(1L, 10);
+    }
+
+    @Test
+    void checkProductAvailabilityReturnsUnavailableResponse() throws Exception {
+        when(productService.checkAvailability(1L, 30))
+                .thenReturn(new ProductAvailabilityResponse(1L, true, false, 25));
+
+        mockMvc.perform(get("/api/products/1/availability")
+                        .param("quantity", "30"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.productId").value(1))
+                .andExpect(jsonPath("$.existsAndActive").value(true))
+                .andExpect(jsonPath("$.available").value(false))
+                .andExpect(jsonPath("$.availableQuantity").value(25));
+    }
+
+    @Test
+    void checkProductAvailabilityWithInvalidQuantityReturnsBadRequest() throws Exception {
+        mockMvc.perform(get("/api/products/1/availability")
+                        .param("quantity", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.path").value("/api/products/1/availability"))
+                .andExpect(jsonPath("$.message").value("Validation failed"))
+                .andExpect(jsonPath("$.fieldErrors.quantity").exists());
     }
 
     @Test

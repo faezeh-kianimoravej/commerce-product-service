@@ -12,10 +12,12 @@ import java.util.List;
 import java.util.Optional;
 
 import com.faezeh.commerce.product.dto.CreateProductRequest;
+import com.faezeh.commerce.product.dto.ProductAvailabilityResponse;
 import com.faezeh.commerce.product.dto.ProductResponse;
 import com.faezeh.commerce.product.dto.UpdateProductRequest;
 import com.faezeh.commerce.product.entity.Product;
 import com.faezeh.commerce.product.exception.DuplicateProductSkuException;
+import com.faezeh.commerce.product.exception.InvalidProductQuantityException;
 import com.faezeh.commerce.product.exception.ProductNotFoundException;
 import com.faezeh.commerce.product.metrics.ProductMetrics;
 import com.faezeh.commerce.product.repository.ProductRepository;
@@ -189,6 +191,52 @@ class ProductServiceTest {
                 .isInstanceOf(ProductNotFoundException.class)
                 .hasMessageContaining("sku: SKU-001");
         verify(productMetrics, never()).productLookup();
+    }
+
+    @Test
+    void checkAvailabilityReturnsAvailableWhenRequestedQuantityIsInStock() {
+        Product product = product();
+        when(productRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.of(product));
+
+        ProductAvailabilityResponse response = productService.checkAvailability(1L, 10);
+
+        assertThat(response.productId()).isEqualTo(1L);
+        assertThat(response.existsAndActive()).isTrue();
+        assertThat(response.available()).isTrue();
+        assertThat(response.availableQuantity()).isEqualTo(25);
+    }
+
+    @Test
+    void checkAvailabilityReturnsUnavailableWhenRequestedQuantityExceedsStock() {
+        Product product = product();
+        when(productRepository.findByIdAndActiveTrue(1L)).thenReturn(Optional.of(product));
+
+        ProductAvailabilityResponse response = productService.checkAvailability(1L, 30);
+
+        assertThat(response.productId()).isEqualTo(1L);
+        assertThat(response.existsAndActive()).isTrue();
+        assertThat(response.available()).isFalse();
+        assertThat(response.availableQuantity()).isEqualTo(25);
+    }
+
+    @Test
+    void checkAvailabilityReturnsUnavailableWhenProductIsMissingOrInactive() {
+        when(productRepository.findByIdAndActiveTrue(99L)).thenReturn(Optional.empty());
+
+        ProductAvailabilityResponse response = productService.checkAvailability(99L, 1);
+
+        assertThat(response.productId()).isEqualTo(99L);
+        assertThat(response.existsAndActive()).isFalse();
+        assertThat(response.available()).isFalse();
+        assertThat(response.availableQuantity()).isZero();
+    }
+
+    @Test
+    void checkAvailabilityThrowsWhenQuantityIsNotPositive() {
+        assertThatThrownBy(() -> productService.checkAvailability(1L, 0))
+                .isInstanceOf(InvalidProductQuantityException.class)
+                .hasMessage("Quantity must be greater than 0");
+        verify(productRepository, never()).findByIdAndActiveTrue(1L);
     }
 
     @Test
